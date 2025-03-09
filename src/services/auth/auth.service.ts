@@ -6,7 +6,8 @@ export const authService = {
 	login: async (payload: { email: string; password: string }) => {
 		const { data } = await api.post<AuthResponse>(
 			API_ROUTES.AUTH.LOGIN,
-			payload
+			payload,
+			{ withCredentials: true }
 		)
 		return data
 	},
@@ -18,13 +19,16 @@ export const authService = {
 	}) => {
 		const { data } = await api.post<AuthResponse>(
 			API_ROUTES.AUTH.SIGNUP,
-			payload
+			payload,
+			{ withCredentials: true }
 		)
 		return data
 	},
 
 	logout: async () => {
-		return await api.get<void>(API_ROUTES.AUTH.LOGOUT)
+		return await api.get<void>(API_ROUTES.AUTH.LOGOUT, {
+			withCredentials: true
+		})
 	},
 
 	refresh: async () => {
