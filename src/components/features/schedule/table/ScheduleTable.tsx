@@ -48,7 +48,7 @@ export const ScheduleTable: React.FC<ScheduleTable> = ({ schedules }) => {
 			setIsEditDialogOpen(false)
 			setSelectedSchedule(null)
 		},
-		onError: error => {
+		onError: () => {
 			toast.error('Failed to update schedule.')
 		}
 	})
@@ -60,7 +60,7 @@ export const ScheduleTable: React.FC<ScheduleTable> = ({ schedules }) => {
 			toast.success('Schedule has been successfully deleted.')
 			setSelectedSchedule(null)
 		},
-		onError: error => {
+		onError: () => {
 			toast.error('Failed to delete schedule.')
 		}
 	})

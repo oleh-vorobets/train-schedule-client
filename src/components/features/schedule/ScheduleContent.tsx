@@ -81,7 +81,7 @@ export const ScheduleContent = () => {
 			toast.success('Schedule has been successfully created.')
 			setIsAddDialogOpen(false)
 		},
-		onError: error => {
+		onError: () => {
 			toast.error('Failed to create schedule.')
 		}
 	})
@@ -92,7 +92,7 @@ export const ScheduleContent = () => {
 			toast.success('You are successfully logged out.')
 			router.push('/login')
 		},
-		onError: error => {
+		onError: () => {
 			toast.error('Failed to log out, please try again.')
 		}
 	})

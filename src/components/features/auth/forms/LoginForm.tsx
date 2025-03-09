@@ -44,7 +44,7 @@ export const LoginForm = () => {
 			toast.success('You are successfully logged in!')
 			router.push('/schedule')
 		},
-		onError: (error: any) => {
+		onError: error => {
 			console.error(error)
 			toast.error('Something went wrong, try again :(')
 		}

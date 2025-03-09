@@ -48,7 +48,7 @@ export const SignupForm = () => {
 			toast.success('You are successfully registered!')
 			router.push('/schedule')
 		},
-		onError: (error: any) => {
+		onError: error => {
 			console.error(error)
 			toast.error('Something went wrong, try again :(')
 		}
