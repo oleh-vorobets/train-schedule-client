@@ -1,8 +1,9 @@
 {
-	"rewrites": [
+	"redirects": [
 		{
 			"source": "/api/(.*)",
-			"destination": "https://train-schedule-server-production.up.railway.app/api/$1"
+			"destination": "https://train-schedule-server-production.up.railway.app/api/$1",
+			"permanent": true
 		}
 	]
 }
