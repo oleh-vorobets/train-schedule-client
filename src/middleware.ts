@@ -8,8 +8,6 @@ export function middleware(req: NextRequest) {
 	const refreshToken = req.cookies.get('refreshToken')?.value
 	const { pathname } = req.nextUrl
 
-	console.log(refreshToken)
-
 	const isAuthenticated = !!refreshToken
 	const isPublicRoute = PUBLIC_ROUTES.includes(pathname)
 
