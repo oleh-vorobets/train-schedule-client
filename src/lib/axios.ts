@@ -1,19 +1,104 @@
 import { authService } from '@/services/auth/auth.service'
-import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios'
+import axios, { AxiosError, AxiosRequestConfig } from 'axios'
 import Cookies from 'js-cookie'
 
 import { useAuthStore } from '@/store/auth/auth.store'
 
+const MAX_RETRIES = 1
+let isRefreshing = false
+let refreshQueue: ((token: string) => void)[] = []
+
+interface AxiosRequestConfigWithRetry extends AxiosRequestConfig {
+	_retry?: number
+}
+
+// Функція для збереження токенів у Cookies
+const saveTokens = (accessToken?: string, refreshToken?: string) => {
+	const expirationDate = new Date()
+	expirationDate.setDate(expirationDate.getDate() + 7) // Термін дії - 7 днів
+
+	if (accessToken) {
+		Cookies.set('accessToken', accessToken, {
+			path: '/',
+			expires: expirationDate
+		})
+	}
+	if (refreshToken) {
+		Cookies.set('refreshToken', refreshToken, {
+			path: '/',
+			expires: expirationDate
+		})
+	}
+}
+
+// Функція для оновлення токена (із запобіганням нескінченному циклу)
+const refreshToken = async (): Promise<string> => {
+	if (isRefreshing) {
+		return new Promise(resolve => {
+			refreshQueue.push(resolve)
+		})
+	}
+
+	isRefreshing = true
+	try {
+		const response = await authService.refresh()
+		if (!response.accessToken) throw new Error('No access token received')
+
+		const newToken = response.accessToken
+		saveTokens(newToken)
+		useAuthStore.getState().setIsAuthenticated(true, newToken)
+
+		refreshQueue.forEach(resolve => resolve(newToken))
+		refreshQueue = []
+
+		return newToken
+	} catch (error) {
+		authService.logout()
+		useAuthStore.getState().logout()
+		if (typeof window !== 'undefined') window.location.href = '/login'
+		throw error
+	} finally {
+		isRefreshing = false
+	}
+}
+
+// Функція для обробки 401 помилки та оновлення токена
+const handleUnauthorizedError = async (error: AxiosError) => {
+	const originalRequest = error.config as AxiosRequestConfigWithRetry
+
+	if (originalRequest._retry && originalRequest._retry >= MAX_RETRIES) {
+		authService.logout()
+		useAuthStore.getState().logout()
+		if (typeof window !== 'undefined') window.location.href = '/login'
+		return Promise.reject(error)
+	}
+
+	originalRequest._retry = (originalRequest._retry || 0) + 1
+
+	try {
+		const newToken = await refreshToken()
+
+		originalRequest.headers = originalRequest.headers || {}
+		originalRequest.headers.Authorization = `Bearer ${newToken}`
+		return api(originalRequest)
+	} catch (refreshError) {
+		return Promise.reject(refreshError)
+	}
+}
+
+// Створення інстансу Axios
 export const api = axios.create({
 	baseURL: process.env.NEXT_PUBLIC_SERVER_URL,
 	headers: { 'Content-Type': 'application/json' },
 	withCredentials: true
 })
 
+// Інтерцептор запиту: Додає токен в заголовок
 api.interceptors.request.use(
 	config => {
 		const token = useAuthStore.getState().token
-		if (token && config.headers) {
+		if (token) {
+			config.headers = config.headers || {}
 			config.headers.Authorization = `Bearer ${token}`
 		}
 		return config
@@ -21,135 +106,10 @@ api.interceptors.request.use(
 	(error: AxiosError) => Promise.reject(error)
 )
 
-interface AxiosRequestConfigWithRetry extends AxiosRequestConfig {
-	_retry?: boolean
-}
-
-let isRefreshing = false
-let failedQueue: {
-	resolve: (value?: unknown) => void
-	reject: (reason?: unknown) => void
-}[] = []
-
-const processQueue = (error: Error | null, token: string | null = null) => {
-	failedQueue.forEach(({ resolve, reject }) => {
-		if (error) {
-			reject(error)
-		} else {
-			resolve(token)
-		}
-	})
-	failedQueue = []
-}
-
-const forceLogout = () => {
-	Cookies.remove('accessToken', { path: '/' })
-	Cookies.remove('refreshToken', { path: '/' })
-
-	const domain = window.location.hostname
-	Cookies.remove('accessToken', { path: '/', domain })
-	Cookies.remove('refreshToken', { path: '/', domain })
-
-	Cookies.set('accessToken', '', { path: '/', domain })
-	Cookies.set('refreshToken', '', { path: '/', domain })
-
-	Cookies.set('accessToken', '', { path: '/' })
-	Cookies.set('refreshToken', '', { path: '/' })
-
-	useAuthStore.getState().logout()
-
-	if (typeof window !== 'undefined') {
-		setTimeout(() => {
-			window.location.href = '/login'
-		}, 100)
+// Інтерцептор відповіді: Оновлення токенів + обробка 401 помилок
+api.interceptors.response.use(response => {
+	if (response.data?.accessToken || response.data?.refreshToken) {
+		saveTokens(response.data.accessToken, response.data.refreshToken)
 	}
-}
-
-api.interceptors.response.use(
-	async (response: AxiosResponse) => {
-		if (response.data) {
-			if (response.data.accessToken) {
-				const accessExpiration = new Date()
-				accessExpiration.setMinutes(accessExpiration.getMinutes() + 15)
-
-				Cookies.set('accessToken', response.data.accessToken, {
-					path: '/',
-					expires: accessExpiration
-				})
-			}
-
-			if (response.data.refreshToken) {
-				const refreshExpiration = new Date()
-				refreshExpiration.setDate(refreshExpiration.getDate() + 7)
-
-				Cookies.set('refreshToken', response.data.refreshToken, {
-					path: '/',
-					expires: refreshExpiration
-				})
-			}
-		}
-		return response
-	},
-	async (error: AxiosError) => {
-		const originalRequest = error.config as AxiosRequestConfigWithRetry
-
-		if (error.response?.status === 401 && !originalRequest._retry) {
-			if (isRefreshing) {
-				return new Promise((resolve, reject) => {
-					failedQueue.push({ resolve, reject })
-				})
-					.then(token => {
-						if (token && originalRequest.headers) {
-							originalRequest.headers.Authorization = `Bearer ${token}`
-						}
-						return api(originalRequest)
-					})
-					.catch(err => Promise.reject(err))
-			}
-
-			originalRequest._retry = true
-			isRefreshing = true
-
-			try {
-				const response = await authService.refresh()
-
-				if (!response?.accessToken) {
-					forceLogout()
-					throw new Error('No access token received')
-				}
-
-				const accessExpiration = new Date()
-				accessExpiration.setMinutes(accessExpiration.getMinutes() + 15)
-
-				Cookies.set('accessToken', response.accessToken, {
-					path: '/',
-					expires: accessExpiration
-				})
-
-				useAuthStore.getState().setIsAuthenticated(true, response.accessToken)
-
-				processQueue(null, response.accessToken)
-
-				if (originalRequest.headers) {
-					originalRequest.headers.Authorization = `Bearer ${response.accessToken}`
-				}
-				isRefreshing = false
-
-				return api(originalRequest)
-			} catch (refreshError) {
-				processQueue(refreshError as Error, null)
-
-				forceLogout()
-
-				isRefreshing = false
-				return Promise.reject(refreshError)
-			}
-		}
-
-		if (error.response?.status === 401 && originalRequest._retry) {
-			forceLogout()
-		}
-
-		return Promise.reject(error)
-	}
-)
+	return response
+}, handleUnauthorizedError)
