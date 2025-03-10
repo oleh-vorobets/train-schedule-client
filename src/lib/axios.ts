@@ -28,7 +28,7 @@ interface AxiosRequestConfigWithRetry extends AxiosRequestConfig {
 let isRefreshing = false
 let failedQueue: {
 	resolve: (value?: unknown) => void
-	reject: (reason?: any) => void
+	reject: (reason?: unknown) => void
 }[] = []
 
 const processQueue = (error: Error | null, token: string | null = null) => {
