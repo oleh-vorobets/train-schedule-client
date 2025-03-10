@@ -14,7 +14,7 @@ export const saveTokens = (accessToken?: string, refreshToken?: string) => {
 	if (accessToken) {
 		localStorage.setItem('accessToken', accessToken)
 		Cookies.set('accessToken', accessToken, {
-			expires: 0.001 // TODO: CHANGE TO 15 minutes
+			expires: 0.0104 // 15 minutes
 		})
 	}
 	if (refreshToken) {
