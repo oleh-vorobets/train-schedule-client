@@ -23,12 +23,8 @@ import { Input } from '@/components/ui/input'
 
 import { TSignupSchema, signupSchema } from '@/schemas/auth/signup.schema'
 
-import { useAuthStore } from '@/store/auth/auth.store'
-
 export const SignupForm = () => {
 	const router = useRouter()
-
-	const setIsAuthenticated = useAuthStore(state => state.setIsAuthenticated)
 
 	const form = useForm<TSignupSchema>({
 		resolver: zodResolver(signupSchema),
@@ -46,7 +42,6 @@ export const SignupForm = () => {
 			repeatPassword: string
 		}) => authService.signup(payload),
 		onSuccess: response => {
-			setIsAuthenticated(true, response.accessToken)
 			saveTokens(response.accessToken, response.refreshToken)
 			toast.success('You are successfully registered!')
 			router.push('/schedule')

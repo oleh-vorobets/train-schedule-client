@@ -23,12 +23,8 @@ import { Input } from '@/components/ui/input'
 
 import { TLoginSchema, loginSchema } from '@/schemas/auth/login.schema'
 
-import { useAuthStore } from '@/store/auth/auth.store'
-
 export const LoginForm = () => {
 	const router = useRouter()
-
-	const setIsAuthenticated = useAuthStore(state => state.setIsAuthenticated)
 
 	const form = useForm<TLoginSchema>({
 		resolver: zodResolver(loginSchema),
@@ -42,7 +38,6 @@ export const LoginForm = () => {
 		mutationFn: (payload: { email: string; password: string }) =>
 			authService.login(payload),
 		onSuccess: response => {
-			setIsAuthenticated(true, response.accessToken)
 			saveTokens(response.accessToken, response.refreshToken)
 			toast.success('You are successfully logged in!')
 			router.push('/schedule')

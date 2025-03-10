@@ -2,8 +2,6 @@ import { authService } from '@/services/auth/auth.service'
 import axios, { AxiosError, AxiosRequestConfig } from 'axios'
 import Cookies from 'js-cookie'
 
-import { useAuthStore } from '@/store/auth/auth.store'
-
 const MAX_RETRIES = 1
 let isRefreshing = false
 let refreshQueue: ((token: string) => void)[] = []
@@ -62,7 +60,6 @@ const refreshToken = async (): Promise<string> => {
 
 		const newToken = response.accessToken
 		saveTokens(newToken, response.refreshToken)
-		useAuthStore.getState().setIsAuthenticated(true, newToken)
 
 		refreshQueue.forEach(resolve => resolve(newToken))
 		refreshQueue = []
@@ -70,7 +67,6 @@ const refreshToken = async (): Promise<string> => {
 		return newToken
 	} catch (error) {
 		await authService.logout()
-		useAuthStore.getState().logout()
 		if (typeof window !== 'undefined') window.location.reload()
 		throw error
 	} finally {
@@ -85,7 +81,6 @@ const handleUnauthorizedError = async (error: AxiosError) => {
 
 	if (originalRequest._retry && originalRequest._retry >= MAX_RETRIES) {
 		await authService.logout()
-		useAuthStore.getState().logout()
 
 		setTimeout(() => {
 			window.location.href = '/login'
@@ -104,7 +99,6 @@ const handleUnauthorizedError = async (error: AxiosError) => {
 		return api(originalRequest)
 	} catch (refreshError) {
 		await authService.logout()
-		useAuthStore.getState().logout()
 
 		setTimeout(() => {
 			window.location.href = '/login'
