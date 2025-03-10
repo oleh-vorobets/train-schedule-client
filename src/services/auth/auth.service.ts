@@ -1,7 +1,6 @@
 import { AuthResponse } from './types'
 import { API_ROUTES } from '@/constants/route.constants'
-import { api } from '@/lib/axios'
-import Cookies from 'js-cookie'
+import { api, deleteTokens } from '@/lib/axios'
 
 export const authService = {
 	login: async (payload: { email: string; password: string }) => {
@@ -26,17 +25,7 @@ export const authService = {
 	},
 
 	logout: async () => {
-		Cookies.set('accessToken', '', {
-			path: '/',
-			expires: new Date()
-		})
-		Cookies.set('refreshToken', '', {
-			path: '/',
-			expires: new Date()
-		})
-
-		Cookies.remove('refreshToken')
-		Cookies.remove('accessToken')
+		deleteTokens()
 		await api.get<void>(API_ROUTES.AUTH.LOGOUT)
 		return true
 	},

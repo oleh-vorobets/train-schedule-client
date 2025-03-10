@@ -1,6 +1,7 @@
 'use client'
 
 import { AuthWrapper } from '../AuthWrapper'
+import { saveTokens } from '@/lib/axios'
 import { authService } from '@/services/auth/auth.service'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation } from '@tanstack/react-query'
@@ -42,11 +43,13 @@ export const LoginForm = () => {
 			authService.login(payload),
 		onSuccess: response => {
 			setIsAuthenticated(true, response.accessToken)
+			saveTokens(response.accessToken, response.refreshToken)
 			toast.success('You are successfully logged in!')
 			router.push('/schedule')
 		},
 		onError: (error: AxiosError<{ message: string }>) => {
-			if (error.status! < 500 && error.response?.data?.message) {
+			console.log(error)
+			if (error?.status! < 500 && error.response?.data?.message) {
 				toast.error(error.response?.data?.message)
 			} else {
 				toast.error('Something went wrong. Try again later.')

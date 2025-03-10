@@ -12,21 +12,40 @@ interface AxiosRequestConfigWithRetry extends AxiosRequestConfig {
 	_retry?: number
 }
 
-const saveTokens = (accessToken?: string, refreshToken?: string) => {
-	const expirationDate = new Date()
-
+export const saveTokens = (accessToken?: string, refreshToken?: string) => {
 	if (accessToken) {
+		localStorage.setItem('accessToken', accessToken)
 		Cookies.set('accessToken', accessToken, {
-			path: '/',
-			expires: expirationDate.setDate(expirationDate.getMinutes() + 15)
+			expires: 0.001 // TODO: CHANGE TO 15 minutes
 		})
 	}
 	if (refreshToken) {
-		Cookies.set('refreshToken', refreshToken, {
-			path: '/',
-			expires: expirationDate.setDate(expirationDate.getDate() + 7)
-		})
+		localStorage.setItem('refreshToken', refreshToken)
+		Cookies.set('refreshToken', refreshToken, { expires: 7 })
 	}
+}
+
+export const deleteTokens = () => {
+	localStorage.removeItem('accessToken')
+	localStorage.removeItem('refreshToken')
+
+	Cookies.set('accessToken', '', {
+		expires: 0.0001,
+		path: '/'
+	})
+
+	Cookies.set('refreshToken', '', { expires: 7, path: '/' })
+
+	Cookies.remove('accessToken')
+	Cookies.remove('refreshToken')
+}
+
+export const getTokens = () => {
+	const accessToken =
+		localStorage.getItem('accessToken') || Cookies.get('accessToken')
+	const refreshToken =
+		localStorage.getItem('refreshToken') || Cookies.get('refreshToken')
+	return { accessToken, refreshToken }
 }
 
 const refreshToken = async (): Promise<string> => {
@@ -42,7 +61,7 @@ const refreshToken = async (): Promise<string> => {
 		if (!response.accessToken) throw new Error('No access token received')
 
 		const newToken = response.accessToken
-		saveTokens(newToken)
+		saveTokens(newToken, response.refreshToken)
 		useAuthStore.getState().setIsAuthenticated(true, newToken)
 
 		refreshQueue.forEach(resolve => resolve(newToken))
@@ -62,10 +81,16 @@ const refreshToken = async (): Promise<string> => {
 const handleUnauthorizedError = async (error: AxiosError) => {
 	const originalRequest = error.config as AxiosRequestConfigWithRetry
 
+	if (error?.response?.status !== 401) return Promise.reject(error)
+
 	if (originalRequest._retry && originalRequest._retry >= MAX_RETRIES) {
 		await authService.logout()
 		useAuthStore.getState().logout()
-		if (typeof window !== 'undefined') window.location.href = '/login'
+
+		setTimeout(() => {
+			window.location.href = '/login'
+		}, 100)
+
 		return Promise.reject(error)
 	}
 
@@ -80,7 +105,11 @@ const handleUnauthorizedError = async (error: AxiosError) => {
 	} catch (refreshError) {
 		await authService.logout()
 		useAuthStore.getState().logout()
-		if (typeof window !== 'undefined') window.location.href = '/login'
+
+		setTimeout(() => {
+			window.location.href = '/login'
+		}, 100)
+
 		return Promise.reject(refreshError)
 	}
 }
@@ -93,10 +122,10 @@ export const api = axios.create({
 
 api.interceptors.request.use(
 	config => {
-		const token = useAuthStore.getState().token
-		if (token) {
+		const { accessToken } = getTokens()
+		if (accessToken) {
 			config.headers = config.headers || {}
-			config.headers.Authorization = `Bearer ${token}`
+			config.headers.Authorization = `Bearer ${accessToken}`
 		}
 		return config
 	},

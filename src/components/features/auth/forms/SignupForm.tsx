@@ -1,6 +1,7 @@
 'use client'
 
 import { AuthWrapper } from '../AuthWrapper'
+import { saveTokens } from '@/lib/axios'
 import { authService } from '@/services/auth/auth.service'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation } from '@tanstack/react-query'
@@ -46,6 +47,7 @@ export const SignupForm = () => {
 		}) => authService.signup(payload),
 		onSuccess: response => {
 			setIsAuthenticated(true, response.accessToken)
+			saveTokens(response.accessToken, response.refreshToken)
 			toast.success('You are successfully registered!')
 			router.push('/schedule')
 		},

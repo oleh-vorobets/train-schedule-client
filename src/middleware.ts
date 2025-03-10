@@ -5,7 +5,7 @@ const PROTECTED_REDIRECT = '/schedule'
 const LOGIN_REDIRECT = '/login'
 
 export function middleware(req: NextRequest) {
-	const accessToken = req.cookies.get('accessToken')?.value
+	const accessToken = req.cookies.get('refreshToken')?.value
 	const { pathname } = req.nextUrl
 
 	const isAuthenticated = !!accessToken
