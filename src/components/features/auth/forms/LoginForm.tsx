@@ -4,6 +4,7 @@ import { AuthWrapper } from '../AuthWrapper'
 import { authService } from '@/services/auth/auth.service'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation } from '@tanstack/react-query'
+import { AxiosError } from 'axios'
 import { useRouter } from 'next/navigation'
 import React from 'react'
 import { useForm } from 'react-hook-form'
@@ -44,9 +45,12 @@ export const LoginForm = () => {
 			toast.success('You are successfully logged in!')
 			router.push('/schedule')
 		},
-		onError: error => {
-			console.error(error)
-			toast.error('Something went wrong, try again :(')
+		onError: (error: AxiosError<{ message: string }>) => {
+			if (error.status! < 500 && error.response?.data?.message) {
+				toast.error(error.response?.data?.message)
+			} else {
+				toast.error('Something went wrong. Try again later.')
+			}
 		}
 	})
 
