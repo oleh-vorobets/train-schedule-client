@@ -73,10 +73,9 @@ api.interceptors.response.use(
 				originalRequest.headers.Authorization = `Bearer ${newToken}`
 				return api(originalRequest)
 			} catch (refreshError) {
-				Cookies.remove('refreshToken')
-				Cookies.remove('accessToken')
 				authService.logout()
 				useAuthStore.getState().logout()
+				if (typeof window !== 'undefined') window.location.href = '/login'
 				return Promise.reject(refreshError)
 			}
 		}
