@@ -10,8 +10,7 @@ const nextConfig: NextConfig = {
 			}
 		]
 	},
-	output: 'standalone',
-	outputFileTracing: false
+	output: 'standalone'
 }
 
 export default nextConfig

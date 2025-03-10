@@ -3,7 +3,7 @@
 import { ScheduleModal } from './modal/ScheduleModal'
 import { ScheduleTable } from './table/ScheduleTable'
 import { ScheduleTableSkeleton } from './table/ScheduleTableSkeleton'
-import { deleteTokens, saveTokens } from '@/lib/axios'
+import { deleteTokens } from '@/lib/axios'
 import { authService } from '@/services/auth/auth.service'
 import { scheduleService } from '@/services/schedule/schedule.service'
 import { ScheduleFilters } from '@/services/schedule/types'

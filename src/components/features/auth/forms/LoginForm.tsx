@@ -44,7 +44,7 @@ export const LoginForm = () => {
 		},
 		onError: (error: AxiosError<{ message: string }>) => {
 			console.log(error)
-			if (error?.status! < 500 && error.response?.data?.message) {
+			if (error.status! < 500 && error.response?.data?.message) {
 				toast.error(error.response?.data?.message)
 			} else {
 				toast.error('Something went wrong. Try again later.')
