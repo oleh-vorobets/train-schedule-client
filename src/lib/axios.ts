@@ -1,5 +1,6 @@
 import { authService } from '@/services/auth/auth.service'
 import axios from 'axios'
+import { cookies } from 'next/headers'
 
 import { useAuthStore } from '@/store/auth/auth.store'
 
@@ -23,7 +24,41 @@ api.interceptors.request.use(
 )
 
 api.interceptors.response.use(
-	response => response,
+	async response => {
+		const setCookieHeaders = response.headers['set-cookie']
+
+		const cookie = await cookies()
+
+		if (response.data && response.data.accessToken) {
+			cookie.set('accessToken', response.data.accessToken, { path: '/' })
+		}
+
+		if (response.data && response.data.refreshToken) {
+			cookie.set('refreshToken', response.data.refreshToken, {
+				path: '/',
+				secure: true,
+				sameSite: 'strict'
+			})
+		}
+
+		if (setCookieHeaders) {
+			try {
+				for (const setCookieHeader of setCookieHeaders) {
+					const cookieParts = setCookieHeader.split(';')[0].split('=')
+					const cookieName = cookieParts[0]
+					const cookieValue = cookieParts[1]
+
+					if (cookieName && cookieValue) {
+						cookie.set(cookieName, cookieValue, { path: '/' })
+					}
+				}
+			} catch (e) {
+				console.error('Error while parsing cookies: ', e)
+			}
+		}
+
+		return response
+	},
 	async error => {
 		const originalRequest = error.config
 
