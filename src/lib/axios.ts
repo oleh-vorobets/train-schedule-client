@@ -56,7 +56,7 @@ const refreshToken = async (): Promise<string> => {
 	isRefreshing = true
 	try {
 		const response = await authService.refresh()
-		if (!response.accessToken) throw new Error('No access token received')
+		if (!response?.accessToken) throw new Error('No access token received')
 
 		const newToken = response.accessToken
 		saveTokens(newToken, response.refreshToken)
@@ -66,8 +66,6 @@ const refreshToken = async (): Promise<string> => {
 
 		return newToken
 	} catch (error) {
-		await authService.logout()
-		if (typeof window !== 'undefined') window.location.reload()
 		throw error
 	} finally {
 		isRefreshing = false
@@ -99,10 +97,7 @@ const handleUnauthorizedError = async (error: AxiosError) => {
 		return api(originalRequest)
 	} catch (refreshError) {
 		await authService.logout()
-
-		setTimeout(() => {
-			window.location.href = '/login'
-		}, 100)
+		if (typeof window !== 'undefined') window.location.reload()
 
 		return Promise.reject(refreshError)
 	}
