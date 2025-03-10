@@ -4,7 +4,6 @@ import { AuthWrapper } from '../AuthWrapper'
 import { authService } from '@/services/auth/auth.service'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation } from '@tanstack/react-query'
-import { cookies } from 'next/headers'
 import { useRouter } from 'next/navigation'
 import React from 'react'
 import { useForm } from 'react-hook-form'
@@ -40,9 +39,7 @@ export const LoginForm = () => {
 	const { mutate, isPending } = useMutation({
 		mutationFn: (payload: { email: string; password: string }) =>
 			authService.login(payload),
-		onSuccess: async response => {
-			const cookieStore = await cookies()
-			console.log(cookieStore)
+		onSuccess: response => {
 			setIsAuthenticated(true, response.accessToken)
 			toast.success('You are successfully logged in!')
 			router.push('/schedule')
