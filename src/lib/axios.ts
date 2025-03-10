@@ -1,5 +1,5 @@
 import { authService } from '@/services/auth/auth.service'
-import axios from 'axios'
+import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from 'axios'
 import Cookies from 'js-cookie'
 
 import { useAuthStore } from '@/store/auth/auth.store'
@@ -13,26 +13,32 @@ export const api = axios.create({
 api.interceptors.request.use(
 	config => {
 		const token = useAuthStore.getState().token
-		if (token) {
+		if (token && config.headers) {
 			config.headers.Authorization = `Bearer ${token}`
 		}
 		return config
 	},
-	error => Promise.reject(error)
+	(error: AxiosError) => Promise.reject(error)
 )
 
-let isRefreshing = false
-let failedQueue: any = []
+interface AxiosRequestConfigWithRetry extends AxiosRequestConfig {
+	_retry?: boolean
+}
 
-const processQueue = (error: any, token = null) => {
-	failedQueue.forEach((prom: any) => {
+let isRefreshing = false
+let failedQueue: {
+	resolve: (value?: unknown) => void
+	reject: (reason?: any) => void
+}[] = []
+
+const processQueue = (error: Error | null, token: string | null = null) => {
+	failedQueue.forEach(({ resolve, reject }) => {
 		if (error) {
-			prom.reject(error)
+			reject(error)
 		} else {
-			prom.resolve(token)
+			resolve(token)
 		}
 	})
-
 	failedQueue = []
 }
 
@@ -60,7 +66,7 @@ const forceLogout = () => {
 }
 
 api.interceptors.response.use(
-	async response => {
+	async (response: AxiosResponse) => {
 		if (response.data) {
 			if (response.data.accessToken) {
 				const accessExpiration = new Date()
@@ -84,8 +90,8 @@ api.interceptors.response.use(
 		}
 		return response
 	},
-	async error => {
-		const originalRequest = error.config
+	async (error: AxiosError) => {
+		const originalRequest = error.config as AxiosRequestConfigWithRetry
 
 		if (error.response?.status === 401 && !originalRequest._retry) {
 			if (isRefreshing) {
@@ -93,12 +99,12 @@ api.interceptors.response.use(
 					failedQueue.push({ resolve, reject })
 				})
 					.then(token => {
-						originalRequest.headers.Authorization = `Bearer ${token}`
+						if (token && originalRequest.headers) {
+							originalRequest.headers.Authorization = `Bearer ${token}`
+						}
 						return api(originalRequest)
 					})
-					.catch(err => {
-						return Promise.reject(err)
-					})
+					.catch(err => Promise.reject(err))
 			}
 
 			originalRequest._retry = true
@@ -122,14 +128,16 @@ api.interceptors.response.use(
 
 				useAuthStore.getState().setIsAuthenticated(true, response.accessToken)
 
-				processQueue(null, response.accessToken as any)
+				processQueue(null, response.accessToken)
 
-				originalRequest.headers.Authorization = `Bearer ${response.accessToken}`
+				if (originalRequest.headers) {
+					originalRequest.headers.Authorization = `Bearer ${response.accessToken}`
+				}
 				isRefreshing = false
 
 				return api(originalRequest)
 			} catch (refreshError) {
-				processQueue(refreshError, null)
+				processQueue(refreshError as Error, null)
 
 				forceLogout()
 
