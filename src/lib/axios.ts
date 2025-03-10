@@ -39,6 +39,7 @@ api.interceptors.response.use(
 				originalRequest.headers.Authorization = `Bearer ${newToken}`
 				return api(originalRequest)
 			} catch (refreshError) {
+				authService.logout()
 				useAuthStore.getState().logout()
 				return Promise.reject(refreshError)
 			}
