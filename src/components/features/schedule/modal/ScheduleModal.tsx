@@ -67,7 +67,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
 				<Form {...form}>
 					<form onSubmit={form.handleSubmit(onSubmit)}>
 						<div className='flex flex-col space-y-6'>
-							<div className='flex w-full flex-row gap-x-4'>
+							<div className='flex w-full flex-col gap-4 lg:flex-row'>
 								<FormField
 									control={form.control}
 									name='from'
@@ -93,7 +93,7 @@ export const ScheduleModal: React.FC<ScheduleModalProps> = ({
 									)}
 								/>
 							</div>
-							<div className='flex w-full flex-row gap-x-4'>
+							<div className='flex w-full flex-col gap-4 lg:flex-row'>
 								<FormField
 									control={form.control}
 									name='startTime'
