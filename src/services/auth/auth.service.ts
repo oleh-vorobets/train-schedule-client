@@ -26,6 +26,15 @@ export const authService = {
 	},
 
 	logout: async () => {
+		Cookies.set('accessToken', '', {
+			path: '/',
+			expires: new Date()
+		})
+		Cookies.set('refreshToken', '', {
+			path: '/',
+			expires: new Date()
+		})
+
 		Cookies.remove('refreshToken')
 		Cookies.remove('accessToken')
 		await api.get<void>(API_ROUTES.AUTH.LOGOUT)

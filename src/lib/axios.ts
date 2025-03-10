@@ -12,26 +12,23 @@ interface AxiosRequestConfigWithRetry extends AxiosRequestConfig {
 	_retry?: number
 }
 
-// Функція для збереження токенів у Cookies
 const saveTokens = (accessToken?: string, refreshToken?: string) => {
 	const expirationDate = new Date()
-	expirationDate.setDate(expirationDate.getDate() + 7) // Термін дії - 7 днів
 
 	if (accessToken) {
 		Cookies.set('accessToken', accessToken, {
 			path: '/',
-			expires: expirationDate
+			expires: expirationDate.setDate(expirationDate.getMinutes() + 15)
 		})
 	}
 	if (refreshToken) {
 		Cookies.set('refreshToken', refreshToken, {
 			path: '/',
-			expires: expirationDate
+			expires: expirationDate.setDate(expirationDate.getDate() + 7)
 		})
 	}
 }
 
-// Функція для оновлення токена (із запобіганням нескінченному циклу)
 const refreshToken = async (): Promise<string> => {
 	if (isRefreshing) {
 		return new Promise(resolve => {
@@ -53,21 +50,20 @@ const refreshToken = async (): Promise<string> => {
 
 		return newToken
 	} catch (error) {
-		authService.logout()
+		await authService.logout()
 		useAuthStore.getState().logout()
-		if (typeof window !== 'undefined') window.location.href = '/login'
+		if (typeof window !== 'undefined') window.location.reload()
 		throw error
 	} finally {
 		isRefreshing = false
 	}
 }
 
-// Функція для обробки 401 помилки та оновлення токена
 const handleUnauthorizedError = async (error: AxiosError) => {
 	const originalRequest = error.config as AxiosRequestConfigWithRetry
 
 	if (originalRequest._retry && originalRequest._retry >= MAX_RETRIES) {
-		authService.logout()
+		await authService.logout()
 		useAuthStore.getState().logout()
 		if (typeof window !== 'undefined') window.location.href = '/login'
 		return Promise.reject(error)
@@ -82,18 +78,19 @@ const handleUnauthorizedError = async (error: AxiosError) => {
 		originalRequest.headers.Authorization = `Bearer ${newToken}`
 		return api(originalRequest)
 	} catch (refreshError) {
+		await authService.logout()
+		useAuthStore.getState().logout()
+		if (typeof window !== 'undefined') window.location.href = '/login'
 		return Promise.reject(refreshError)
 	}
 }
 
-// Створення інстансу Axios
 export const api = axios.create({
 	baseURL: process.env.NEXT_PUBLIC_SERVER_URL,
 	headers: { 'Content-Type': 'application/json' },
 	withCredentials: true
 })
 
-// Інтерцептор запиту: Додає токен в заголовок
 api.interceptors.request.use(
 	config => {
 		const token = useAuthStore.getState().token
@@ -106,7 +103,6 @@ api.interceptors.request.use(
 	(error: AxiosError) => Promise.reject(error)
 )
 
-// Інтерцептор відповіді: Оновлення токенів + обробка 401 помилок
 api.interceptors.response.use(response => {
 	if (response.data?.accessToken || response.data?.refreshToken) {
 		saveTokens(response.data.accessToken, response.data.refreshToken)
