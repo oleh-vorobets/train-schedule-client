@@ -16,14 +16,12 @@ export const saveTokens = (accessToken?: string, refreshToken?: string) => {
 		})
 	}
 	if (refreshToken) {
-		localStorage.setItem('refreshToken', refreshToken)
 		Cookies.set('refreshToken', refreshToken, { expires: 7, path: '/' })
 	}
 }
 
 export const deleteTokens = () => {
 	localStorage.removeItem('accessToken')
-	localStorage.removeItem('refreshToken')
 
 	Cookies.set('accessToken', '', {
 		expires: 0.0001,
@@ -36,12 +34,10 @@ export const deleteTokens = () => {
 	Cookies.remove('refreshToken', { path: '/' })
 }
 
-export const getTokens = () => {
+export const getToken = () => {
 	const accessToken =
 		localStorage.getItem('accessToken') || Cookies.get('accessToken')
-	const refreshToken =
-		localStorage.getItem('refreshToken') || Cookies.get('refreshToken')
-	return { accessToken, refreshToken }
+	return accessToken
 }
 
 const logout = async () => {
@@ -127,7 +123,7 @@ export const api = axios.create({
 
 api.interceptors.request.use(
 	config => {
-		const { accessToken } = getTokens()
+		const accessToken = getToken()
 		if (accessToken) {
 			config.headers = config.headers || {}
 			config.headers.Authorization = `Bearer ${accessToken}`
