@@ -24,12 +24,59 @@ export const authService = {
 		)
 		return data
 	},
-
 	logout: async () => {
-		Cookies.remove('refreshToken')
-		await api.get<void>(API_ROUTES.AUTH.LOGOUT)
-		Cookies.remove('accessToken')
-		return true
+		try {
+			const expiredDate = new Date()
+			expiredDate.setDate(expiredDate.getDate() - 1)
+
+			Cookies.set('accessToken', '', {
+				path: '/',
+				expires: expiredDate
+			})
+
+			Cookies.set('refreshToken', '', {
+				path: '/',
+				expires: expiredDate
+			})
+
+			Cookies.remove('accessToken', { path: '/' })
+			Cookies.remove('refreshToken', { path: '/' })
+
+			const domain = window.location.hostname
+			if (domain !== 'localhost') {
+				Cookies.set('accessToken', '', {
+					path: '/',
+					domain: domain,
+					expires: expiredDate
+				})
+
+				Cookies.set('refreshToken', '', {
+					path: '/',
+					domain: domain,
+					expires: expiredDate
+				})
+			}
+
+			await api.get<void>(API_ROUTES.AUTH.LOGOUT)
+			return true
+		} catch (error) {
+			console.error('Logout error:', error)
+
+			const expiredDate = new Date()
+			expiredDate.setDate(expiredDate.getDate() - 1)
+
+			Cookies.set('accessToken', '', {
+				path: '/',
+				expires: expiredDate
+			})
+
+			Cookies.set('refreshToken', '', {
+				path: '/',
+				expires: expiredDate
+			})
+
+			return false
+		}
 	},
 
 	refresh: async () => {

@@ -6,9 +6,7 @@ import { useAuthStore } from '@/store/auth/auth.store'
 
 export const api = axios.create({
 	baseURL: process.env.NEXT_PUBLIC_SERVER_URL,
-	headers: {
-		'Content-Type': 'application/json'
-	},
+	headers: { 'Content-Type': 'application/json' },
 	withCredentials: true
 })
 
@@ -23,61 +21,125 @@ api.interceptors.request.use(
 	error => Promise.reject(error)
 )
 
+let isRefreshing = false
+let failedQueue: any = []
+
+const processQueue = (error: any, token = null) => {
+	failedQueue.forEach((prom: any) => {
+		if (error) {
+			prom.reject(error)
+		} else {
+			prom.resolve(token)
+		}
+	})
+
+	failedQueue = []
+}
+
+const forceLogout = () => {
+	Cookies.remove('accessToken', { path: '/' })
+	Cookies.remove('refreshToken', { path: '/' })
+
+	const domain = window.location.hostname
+	Cookies.remove('accessToken', { path: '/', domain })
+	Cookies.remove('refreshToken', { path: '/', domain })
+
+	Cookies.set('accessToken', '', { path: '/', domain })
+	Cookies.set('refreshToken', '', { path: '/', domain })
+
+	Cookies.set('accessToken', '', { path: '/' })
+	Cookies.set('refreshToken', '', { path: '/' })
+
+	useAuthStore.getState().logout()
+
+	if (typeof window !== 'undefined') {
+		setTimeout(() => {
+			window.location.href = '/login'
+		}, 100)
+	}
+}
+
 api.interceptors.response.use(
 	async response => {
-		const expirationDate = new Date()
-		expirationDate.setDate(expirationDate.getDate())
-
 		if (response.data) {
 			if (response.data.accessToken) {
+				const accessExpiration = new Date()
+				accessExpiration.setMinutes(accessExpiration.getMinutes() + 15)
+
 				Cookies.set('accessToken', response.data.accessToken, {
 					path: '/',
-					expires: expirationDate.setDate(expirationDate.getDate() + 7)
+					expires: accessExpiration
 				})
-			} else {
-				Cookies.set('accessToken', response.data.accessToken, {
+			}
+
+			if (response.data.refreshToken) {
+				const refreshExpiration = new Date()
+				refreshExpiration.setDate(refreshExpiration.getDate() + 7)
+
+				Cookies.set('refreshToken', response.data.refreshToken, {
 					path: '/',
-					expires: expirationDate
+					expires: refreshExpiration
 				})
 			}
 		}
-
-		if (response.data && response.data.refreshToken) {
-			if (response.data.accessToken) {
-				Cookies.set('refreshToken', response.data.refreshToken, {
-					path: '/',
-					expires: expirationDate.setDate(expirationDate.getDate() + 7)
-				})
-			} else {
-				Cookies.set('refreshToken', response.data.refreshToken, {
-					path: '/',
-					expires: expirationDate
-				})
-			}
-		}
-
 		return response
 	},
 	async error => {
 		const originalRequest = error.config
 
 		if (error.response?.status === 401 && !originalRequest._retry) {
+			if (isRefreshing) {
+				return new Promise((resolve, reject) => {
+					failedQueue.push({ resolve, reject })
+				})
+					.then(token => {
+						originalRequest.headers.Authorization = `Bearer ${token}`
+						return api(originalRequest)
+					})
+					.catch(err => {
+						return Promise.reject(err)
+					})
+			}
+
 			originalRequest._retry = true
+			isRefreshing = true
 
 			try {
 				const response = await authService.refresh()
 
-				const newToken = response.accessToken
-				useAuthStore.getState().setIsAuthenticated(true, newToken)
+				if (!response?.accessToken) {
+					forceLogout()
+					throw new Error('No access token received')
+				}
 
-				originalRequest.headers.Authorization = `Bearer ${newToken}`
+				const accessExpiration = new Date()
+				accessExpiration.setMinutes(accessExpiration.getMinutes() + 15)
+
+				Cookies.set('accessToken', response.accessToken, {
+					path: '/',
+					expires: accessExpiration
+				})
+
+				useAuthStore.getState().setIsAuthenticated(true, response.accessToken)
+
+				processQueue(null, response.accessToken as any)
+
+				originalRequest.headers.Authorization = `Bearer ${response.accessToken}`
+				isRefreshing = false
+
 				return api(originalRequest)
 			} catch (refreshError) {
-				authService.logout()
-				useAuthStore.getState().logout()
-				if (typeof window !== 'undefined') window.location.href = '/login'
+				processQueue(refreshError, null)
+
+				forceLogout()
+
+				isRefreshing = false
 				return Promise.reject(refreshError)
 			}
+		}
+
+		if (error.response?.status === 401 && originalRequest._retry) {
+			forceLogout()
 		}
 
 		return Promise.reject(error)
