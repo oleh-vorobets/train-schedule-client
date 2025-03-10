@@ -25,31 +25,34 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
 	async response => {
-		const setCookieHeaders = response.headers['Set-Cookie']
+		const expirationDate = new Date()
+		expirationDate.setDate(expirationDate.getDate())
 
-		if (response.data && response.data.accessToken) {
-			Cookies.set('accessToken', response.data.accessToken, { path: '/' })
+		if (response.data) {
+			if (response.data.accessToken) {
+				Cookies.set('accessToken', response.data.accessToken, {
+					path: '/',
+					expires: expirationDate.setDate(expirationDate.getDate() + 7)
+				})
+			} else {
+				Cookies.set('accessToken', response.data.accessToken, {
+					path: '/',
+					expires: expirationDate
+				})
+			}
 		}
 
 		if (response.data && response.data.refreshToken) {
-			Cookies.set('refreshToken', response.data.refreshToken, {
-				path: '/'
-			})
-		}
-
-		if (setCookieHeaders) {
-			try {
-				for (const setCookieHeader of setCookieHeaders) {
-					const cookieParts = setCookieHeader.split(';')[0].split('=')
-					const cookieName = cookieParts[0]
-					const cookieValue = cookieParts[1]
-
-					if (cookieName && cookieValue) {
-						Cookies.set(cookieName, cookieValue, { path: '/' })
-					}
-				}
-			} catch (e) {
-				console.error('Error while parsing cookies: ', e)
+			if (response.data.accessToken) {
+				Cookies.set('refreshToken', response.data.refreshToken, {
+					path: '/',
+					expires: expirationDate.setDate(expirationDate.getDate() + 7)
+				})
+			} else {
+				Cookies.set('refreshToken', response.data.refreshToken, {
+					path: '/',
+					expires: expirationDate
+				})
 			}
 		}
 
