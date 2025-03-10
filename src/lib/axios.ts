@@ -25,7 +25,7 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
 	async response => {
-		const setCookieHeaders = response.headers['set-cookie']
+		const setCookieHeaders = response.headers['Set-Cookie']
 
 		if (response.data && response.data.accessToken) {
 			Cookies.set('accessToken', response.data.accessToken, { path: '/' })
@@ -33,9 +33,7 @@ api.interceptors.response.use(
 
 		if (response.data && response.data.refreshToken) {
 			Cookies.set('refreshToken', response.data.refreshToken, {
-				path: '/',
-				secure: true,
-				sameSite: 'strict'
+				path: '/'
 			})
 		}
 
