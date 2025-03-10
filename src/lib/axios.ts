@@ -1,4 +1,5 @@
 import { authService } from '@/services/auth/auth.service'
+import { AxiosRequestConfigExtended } from '@/services/auth/types'
 import axios, { AxiosError, AxiosRequestConfig } from 'axios'
 import Cookies from 'js-cookie'
 
@@ -6,20 +7,17 @@ const MAX_RETRIES = 1
 let isRefreshing = false
 let refreshQueue: ((token: string) => void)[] = []
 
-interface AxiosRequestConfigWithRetry extends AxiosRequestConfig {
-	_retry?: number
-}
-
 export const saveTokens = (accessToken?: string, refreshToken?: string) => {
 	if (accessToken) {
 		localStorage.setItem('accessToken', accessToken)
 		Cookies.set('accessToken', accessToken, {
-			expires: 0.0104 // 15 minutes
+			expires: 0.0104, // 15 minutes
+			path: '/'
 		})
 	}
 	if (refreshToken) {
 		localStorage.setItem('refreshToken', refreshToken)
-		Cookies.set('refreshToken', refreshToken, { expires: 7 })
+		Cookies.set('refreshToken', refreshToken, { expires: 7, path: '/' })
 	}
 }
 
@@ -32,10 +30,10 @@ export const deleteTokens = () => {
 		path: '/'
 	})
 
-	Cookies.set('refreshToken', '', { expires: 7, path: '/' })
+	Cookies.set('refreshToken', '', { expires: 0.0001, path: '/' })
 
-	Cookies.remove('accessToken')
-	Cookies.remove('refreshToken')
+	Cookies.remove('accessToken', { path: '/' })
+	Cookies.remove('refreshToken', { path: '/' })
 }
 
 export const getTokens = () => {
@@ -46,17 +44,30 @@ export const getTokens = () => {
 	return { accessToken, refreshToken }
 }
 
-const refreshToken = async (): Promise<string> => {
+const logout = async () => {
+	await authService.logout()
+	deleteTokens()
+	window.location.reload()
+}
+
+const refreshToken = async (logout: boolean = false): Promise<string> => {
 	if (isRefreshing) {
-		return new Promise(resolve => {
+		return new Promise((resolve, reject) => {
 			refreshQueue.push(resolve)
 		})
 	}
 
 	isRefreshing = true
 	try {
-		const response = await authService.refresh()
-		if (!response?.accessToken) throw new Error('No access token received')
+		const response = await authService.refresh(logout)
+
+		if (!response) {
+			throw new Error('No response from server')
+		}
+
+		if (!response?.accessToken) {
+			throw new Error('No access token received')
+		}
 
 		const newToken = response.accessToken
 		saveTokens(newToken, response.refreshToken)
@@ -66,43 +77,48 @@ const refreshToken = async (): Promise<string> => {
 
 		return newToken
 	} catch (error) {
-		throw error
+		refreshQueue.forEach(resolve => resolve(''))
+		refreshQueue = []
+		throw new Error('Token refresh failed')
 	} finally {
+		refreshQueue.forEach(resolve => resolve(''))
+		refreshQueue = []
 		isRefreshing = false
 	}
 }
 
 const handleUnauthorizedError = async (error: AxiosError) => {
-	const originalRequest = error.config as AxiosRequestConfigWithRetry
+	const originalRequest = error.config as AxiosRequestConfigExtended
 
-	if (error?.response?.status !== 401) return Promise.reject(error)
-
-	if (originalRequest._retry && originalRequest._retry >= MAX_RETRIES) {
-		await authService.logout()
-
-		setTimeout(() => {
-			window.location.href = '/login'
-		}, 100)
-
+	if (error?.response?.status !== 401) {
 		return Promise.reject(error)
+	}
+
+	//if logout attribute in config logout user after 401 erorr
+	if (
+		(originalRequest._retry && originalRequest._retry >= MAX_RETRIES) ||
+		originalRequest._logout
+	) {
+		logout()
 	}
 
 	originalRequest._retry = (originalRequest._retry || 0) + 1
 
 	try {
-		const newToken = await refreshToken()
+		const newToken = await refreshToken(true)
+
+		if (!newToken) {
+			logout()
+		}
 
 		originalRequest.headers = originalRequest.headers || {}
 		originalRequest.headers.Authorization = `Bearer ${newToken}`
 		return api(originalRequest)
 	} catch (refreshError) {
-		await authService.logout()
-		if (typeof window !== 'undefined') window.location.reload()
-
+		logout()
 		return Promise.reject(refreshError)
 	}
 }
-
 export const api = axios.create({
 	baseURL: process.env.NEXT_PUBLIC_SERVER_URL,
 	headers: { 'Content-Type': 'application/json' },

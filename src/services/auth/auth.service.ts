@@ -1,4 +1,4 @@
-import { AuthResponse } from './types'
+import { AuthResponse, AxiosRequestConfigExtended } from './types'
 import { API_ROUTES } from '@/constants/route.constants'
 import { api, deleteTokens } from '@/lib/axios'
 
@@ -30,10 +30,12 @@ export const authService = {
 		return true
 	},
 
-	refresh: async () => {
+	refresh: async (logout: boolean = false) => {
 		const { data } = await api.get<AuthResponse>(API_ROUTES.AUTH.REFRESH, {
-			withCredentials: true
-		})
+			withCredentials: true,
+			_logout: logout
+		} as AxiosRequestConfigExtended)
+
 		return data
 	}
 }
