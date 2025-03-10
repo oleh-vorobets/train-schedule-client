@@ -1,6 +1,6 @@
 import { authService } from '@/services/auth/auth.service'
 import axios from 'axios'
-import { cookies } from 'next/headers'
+import Cookies from 'js-cookie'
 
 import { useAuthStore } from '@/store/auth/auth.store'
 
@@ -27,14 +27,12 @@ api.interceptors.response.use(
 	async response => {
 		const setCookieHeaders = response.headers['set-cookie']
 
-		const cookie = await cookies()
-
 		if (response.data && response.data.accessToken) {
-			cookie.set('accessToken', response.data.accessToken, { path: '/' })
+			Cookies.set('accessToken', response.data.accessToken, { path: '/' })
 		}
 
 		if (response.data && response.data.refreshToken) {
-			cookie.set('refreshToken', response.data.refreshToken, {
+			Cookies.set('refreshToken', response.data.refreshToken, {
 				path: '/',
 				secure: true,
 				sameSite: 'strict'
@@ -49,7 +47,7 @@ api.interceptors.response.use(
 					const cookieValue = cookieParts[1]
 
 					if (cookieName && cookieValue) {
-						cookie.set(cookieName, cookieValue, { path: '/' })
+						Cookies.set(cookieName, cookieValue, { path: '/' })
 					}
 				}
 			} catch (e) {
