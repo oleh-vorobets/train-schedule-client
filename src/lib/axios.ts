@@ -1,6 +1,6 @@
 import { authService } from '@/services/auth/auth.service'
 import { AxiosRequestConfigExtended } from '@/services/auth/types'
-import axios, { AxiosError, AxiosRequestConfig } from 'axios'
+import axios, { AxiosError } from 'axios'
 import Cookies from 'js-cookie'
 
 const MAX_RETRIES = 1
@@ -52,7 +52,7 @@ const logout = async () => {
 
 const refreshToken = async (logout: boolean = false): Promise<string> => {
 	if (isRefreshing) {
-		return new Promise((resolve, reject) => {
+		return new Promise(resolve => {
 			refreshQueue.push(resolve)
 		})
 	}
@@ -76,7 +76,7 @@ const refreshToken = async (logout: boolean = false): Promise<string> => {
 		refreshQueue = []
 
 		return newToken
-	} catch (error) {
+	} catch {
 		refreshQueue.forEach(resolve => resolve(''))
 		refreshQueue = []
 		throw new Error('Token refresh failed')
